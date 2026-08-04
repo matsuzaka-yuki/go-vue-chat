@@ -8,6 +8,7 @@ server/data/
 # Node
 client/node_modules/
 client/dist/
+client/.env
 
 # IDE
 .vscode/

@@ -75,7 +75,7 @@
         <div class="sidebar-bottom">
           <div class="sidebar-user" @click="switchView('profile')">
             <div class="user-avatar">
-              <img v-if="avatar" :src="avatar" :alt="nickname" />
+              <img v-if="avatar" :src="assetUrl(avatar)" :alt="nickname" />
               <span v-else>{{ nickname.charAt(0) }}</span>
             </div>
             <div class="user-meta">
@@ -111,13 +111,13 @@
           <div class="messages" ref="msgBox">
             <div v-for="(m, i) in messages" :key="i" class="msg-row" :class="{ self: m.nick === nickname }">
               <div class="msg-avatar" @click="showUserDetail(m)">
-                <img v-if="m.avatar" :src="m.avatar" :alt="m.nick" />
+                <img v-if="m.avatar" :src="assetUrl(m.avatar)" :alt="m.nick" />
                 <span v-else>{{ m.nick.charAt(0) }}</span>
               </div>
               <div class="msg-content">
                 <span class="msg-nick">{{ m.nick }}</span>
-                <img v-if="m.mediaType === 'image' && m.mediaUrl" :src="m.mediaUrl" class="msg-image" @load="scrollToBottom" @click="openLightbox(m.mediaUrl)" />
-                <video v-else-if="m.mediaType === 'video' && m.mediaUrl" :src="m.mediaUrl" class="msg-video" controls @loadedmetadata="scrollToBottom"></video>
+                <img v-if="m.mediaType === 'image' && m.mediaUrl" :src="assetUrl(m.mediaUrl)" class="msg-image" @load="scrollToBottom" @click="openLightbox(assetUrl(m.mediaUrl))" />
+                <video v-else-if="m.mediaType === 'video' && m.mediaUrl" :src="assetUrl(m.mediaUrl)" class="msg-video" controls @loadedmetadata="scrollToBottom"></video>
                 <div class="msg-body" :class="{ 'no-border': m.mediaUrl && m.mediaType !== 'file' }">
                   <div v-if="m.mediaType === 'file' && m.mediaUrl" class="msg-file-card">
                     <div class="file-icon">{{ getFileExt(m.content) }}</div>
@@ -125,7 +125,7 @@
                       <strong>{{ m.content }}</strong>
                       <span>{{ m.fileSize ? formatFileSize(m.fileSize) : '点击下载' }}</span>
                     </div>
-                    <a :href="m.mediaUrl" target="_blank" download class="file-download">
+                    <a :href="assetUrl(m.mediaUrl)" target="_blank" download class="file-download">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     </a>
                   </div>
@@ -164,7 +164,7 @@
           <div class="profile-content">
             <div class="profile-avatar-section">
               <div class="profile-avatar">
-                <img v-if="avatar" :src="avatar" :alt="nickname" />
+                <img v-if="avatar" :src="assetUrl(avatar)" :alt="nickname" />
                 <span v-else>{{ nickname.charAt(0) }}</span>
               </div>
               <label class="avatar-upload">
@@ -219,7 +219,7 @@
                 <div class="search-title">搜索结果</div>
                 <div v-for="u in searchResults" :key="u.username" class="search-item">
                   <div class="search-avatar" @click="showContactDetail(u)">
-                    <img v-if="u.avatar" :src="u.avatar" />
+                    <img v-if="u.avatar" :src="assetUrl(u.avatar)" />
                     <span v-else>{{ u.nickname.charAt(0) }}</span>
                   </div>
                   <div class="search-info" @click="showContactDetail(u)">
@@ -240,7 +240,7 @@
               <div class="contacts-list">
                 <div v-for="c in contacts" :key="c.username" class="contact-item">
                   <div class="contact-avatar" @click="showContactDetail(c)">
-                    <img v-if="c.avatar" :src="c.avatar" />
+                    <img v-if="c.avatar" :src="assetUrl(c.avatar)" />
                     <span v-else>{{ c.nickname.charAt(0) }}</span>
                   </div>
                   <div class="contact-info" @click="startPrivateChat(c)">
@@ -266,7 +266,7 @@
           <div class="profile-content">
             <div class="profile-avatar-section">
               <div class="profile-avatar">
-                <img v-if="contactDetail.avatar" :src="contactDetail.avatar" />
+                <img v-if="contactDetail.avatar" :src="assetUrl(contactDetail.avatar)" />
                 <span v-else>{{ (contactDetail.nickname || '').charAt(0) }}</span>
               </div>
             </div>
@@ -298,7 +298,7 @@
           <div class="relation-list">
             <div v-for="u in relationList" :key="u.username" class="contact-item">
               <div class="contact-avatar" @click="showContactDetail(u)">
-                <img v-if="u.avatar" :src="u.avatar" />
+                <img v-if="u.avatar" :src="assetUrl(u.avatar)" />
                 <span v-else>{{ (u.nickname || '').charAt(0) }}</span>
               </div>
               <div class="contact-info" @click="showContactDetail(u)">
@@ -344,6 +344,16 @@
 
 <script>
 const STORAGE_KEY = 'chat_user'
+
+const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+const WS_BASE = import.meta.env.VITE_WS_BASE || ''
+const ASSET_BASE = import.meta.env.VITE_ASSET_BASE || ''
+
+function assetUrlFun(path) {
+  if (!path) return ''
+  if (!ASSET_BASE) return path
+  return ASSET_BASE + path
+}
 
 export default {
   data() {
@@ -407,7 +417,7 @@ export default {
   methods: {
     async autoLogin(username, password) {
       try {
-        const res = await fetch('/api/login', {
+        const res = await fetch(`${API_BASE}/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password }),
@@ -427,7 +437,7 @@ export default {
     async doLogin() {
       this.loginError = ''
       try {
-        const res = await fetch('/api/login', {
+        const res = await fetch(`${API_BASE}/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(this.loginForm),
@@ -448,7 +458,7 @@ export default {
     async doRegister() {
       this.regError = ''
       try {
-        const res = await fetch('/api/register', {
+        const res = await fetch(`${API_BASE}/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(this.regForm),
@@ -490,7 +500,7 @@ export default {
       this.profileMsg = ''
       this.profileError = false
       try {
-        const res = await fetch('/api/profile/update', {
+        const res = await fetch(`${API_BASE}/profile/update`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -528,7 +538,7 @@ export default {
       form.append('avatar', file)
 
       try {
-        const res = await fetch('/api/avatar/upload', {
+        const res = await fetch(`${API_BASE}/avatar/upload`, {
           method: 'POST',
           body: form,
         })
@@ -548,7 +558,7 @@ export default {
       const form = new FormData()
       form.append('file', file)
       try {
-        const res = await fetch('/api/media/upload', { method: 'POST', body: form })
+        const res = await fetch(`${API_BASE}/media/upload`, { method: 'POST', body: form })
         const data = await res.json()
         if (data.success) {
           this.ws.send(JSON.stringify({
@@ -564,6 +574,9 @@ export default {
       this.uploading = false
       this.$refs.fileInput.value = ''
     },
+    assetUrl(path) {
+      return assetUrlFun(path)
+    },
     getFileExt(name) {
       const ext = (name || '').split('.').pop() || 'FILE'
       return ext.length <= 4 ? ext.toUpperCase() : 'FILE'
@@ -575,7 +588,7 @@ export default {
       return (bytes / 1024 / 1024).toFixed(1) + ' MB'
     },
     openFile(url) {
-      window.open(url, '_blank')
+      window.open(assetUrl(url), '_blank')
     },
     scrollToBottom() {
       this.$nextTick(() => {
@@ -586,8 +599,8 @@ export default {
     async loadContacts() {
       try {
         const [fwRes, frRes] = await Promise.all([
-          fetch(`/api/following?username=${encodeURIComponent(this.username)}`),
-          fetch(`/api/followers?username=${encodeURIComponent(this.username)}`),
+          fetch(`${API_BASE}/following?username=${encodeURIComponent(this.username)}`),
+          fetch(`${API_BASE}/followers?username=${encodeURIComponent(this.username)}`),
         ])
         const fw = await fwRes.json()
         const fr = await frRes.json()
@@ -599,8 +612,8 @@ export default {
     async loadProfileStats() {
       try {
         const [fwRes, frRes] = await Promise.all([
-          fetch(`/api/following?username=${encodeURIComponent(this.username)}`),
-          fetch(`/api/followers?username=${encodeURIComponent(this.username)}`),
+          fetch(`${API_BASE}/following?username=${encodeURIComponent(this.username)}`),
+          fetch(`${API_BASE}/followers?username=${encodeURIComponent(this.username)}`),
         ])
         const fw = await fwRes.json()
         const fr = await frRes.json()
@@ -613,7 +626,7 @@ export default {
       this.relationList = []
       this.view = 'relation-list'
       try {
-        const res = await fetch(`/api/${type}?username=${encodeURIComponent(user.username)}`)
+        const res = await fetch(`${API_BASE}/${type}?username=${encodeURIComponent(user.username)}`)
         const data = await res.json()
         this.relationList = data.users || []
       } catch {}
@@ -621,7 +634,7 @@ export default {
     },
     async addContact(contactUsername) {
       try {
-        const res = await fetch('/api/contacts/add', {
+        const res = await fetch(`${API_BASE}/contacts/add`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: this.username, contact: contactUsername }),
@@ -637,7 +650,7 @@ export default {
     async searchUsers() {
       if (!this.searchQuery.trim()) { this.searchResults = []; return }
       try {
-        const res = await fetch(`/api/users/search?q=${encodeURIComponent(this.searchQuery)}`)
+        const res = await fetch(`${API_BASE}/users/search?q=${encodeURIComponent(this.searchQuery)}`)
         const data = await res.json()
         this.searchResults = data.users || []
       } catch {}
@@ -649,9 +662,9 @@ export default {
       this.contactDetail = { ...contact }
       try {
         const [relRes, fwRes, frRes] = await Promise.all([
-          fetch(`/api/relation?username=${this.username}&target=${contact.username}`),
-          fetch(`/api/following?username=${contact.username}`),
-          fetch(`/api/followers?username=${contact.username}`),
+          fetch(`${API_BASE}/relation?username=${this.username}&target=${contact.username}`),
+          fetch(`${API_BASE}/following?username=${contact.username}`),
+          fetch(`${API_BASE}/followers?username=${contact.username}`),
         ])
         const rel = await relRes.json()
         const fw = await fwRes.json()
@@ -671,7 +684,7 @@ export default {
         return
       }
       try {
-        const res = await fetch(`/api/users/search?q=${encodeURIComponent(msg.nick)}`)
+        const res = await fetch(`${API_BASE}/users/search?q=${encodeURIComponent(msg.nick)}`)
         const data = await res.json()
         if (data.success && data.users.length > 0) {
           const u = data.users[0]
@@ -682,7 +695,7 @@ export default {
     },
     async doFollow(target) {
       try {
-        const res = await fetch('/api/follow', {
+        const res = await fetch(`${API_BASE}/follow`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: this.username, target: target.username }),
@@ -698,7 +711,7 @@ export default {
     },
     async doUnfollow(target) {
       try {
-        await fetch('/api/unfollow', {
+        await fetch(`${API_BASE}/unfollow`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: this.username, target: target.username }),
@@ -740,7 +753,8 @@ export default {
     },
     connect(room) {
       const r = room || this.room.trim() || '大厅'
-      const wsUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws?username=${encodeURIComponent(this.username)}&nick=${encodeURIComponent(this.nickname)}&room=${encodeURIComponent(r)}`
+      const host = WS_BASE || location.host
+      const wsUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${host}/ws?username=${encodeURIComponent(this.username)}&nick=${encodeURIComponent(this.nickname)}&room=${encodeURIComponent(r)}`
       if (this.ws) this.ws.close()
       this.ws = new WebSocket(wsUrl)
 
