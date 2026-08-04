@@ -95,8 +95,8 @@
                 {{ users.length }} 人在线
               </span>
             </div>
-            <button class="btn-leave" @click="disconnect" title="离开房间">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <button class="btn-leave" @click="disconnect" title="退出房间">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             </button>
           </div>
 
@@ -117,9 +117,7 @@
 
           <div class="input-bar">
             <input v-model="text" placeholder="输入消息..." @keyup.enter="send" />
-            <button class="btn-send" @click="send">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            </button>
+            <button class="btn-send" @click="send">发送</button>
           </div>
         </div>
 
@@ -581,16 +579,13 @@ body {
 }
 .input-bar input:focus { border-color: #1a1a1a; background: #fff; }
 .btn-send {
-  width: 44px;
-  height: 44px;
+  padding: 10px 20px;
   background: #1a1a1a;
   color: #fff;
   border: none;
   border-radius: 8px;
+  font-size: 14px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: all 0.2s;
   flex-shrink: 0;
 }
