@@ -56,7 +56,7 @@ func (h *Hub) Run() {
 			if user, err := h.store.GetUser(msg.UserID); err == nil {
 				msg.Avatar = user.Avatar
 			}
-			if err := h.store.SaveMessage(msg.Room, msg.Nick, msg.Content, msg.Avatar, msg.Time); err != nil {
+			if err := h.store.SaveMessage(msg.Room, msg.Nick, msg.Content, msg.Avatar, msg.MediaURL, msg.MediaType, msg.Time); err != nil {
 				log.Printf("保存消息失败: %v", err)
 			}
 
@@ -136,11 +136,13 @@ func (h *Hub) sendHistory(client *Client) {
 			avatar = sm.Avatar
 		}
 		m := Message{
-			Type:    "message",
-			Nick:    sm.Nick,
-			Content: sm.Content,
-			Time:    sm.CreatedAt,
-			Avatar:  avatar,
+			Type:      "message",
+			Nick:      sm.Nick,
+			Content:   sm.Content,
+			Time:      sm.CreatedAt,
+			Avatar:    avatar,
+			MediaURL:  sm.MediaURL,
+			MediaType: sm.MediaType,
 		}
 		select {
 		case client.send <- m.encode():

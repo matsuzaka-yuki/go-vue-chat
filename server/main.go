@@ -232,6 +232,56 @@ func handleUploadAvatar(store *Store) http.HandlerFunc {
 	}
 }
 
+func handleUploadMedia() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		r.ParseMultipartForm(10 << 20)
+		file, handler, err := r.FormFile("file")
+		if err != nil {
+			json.NewEncoder(w).Encode(AuthResponse{Success: false, Message: "读取文件失败"})
+			return
+		}
+		defer file.Close()
+
+		ext := filepath.Ext(handler.Filename)
+		mediaDir := "data/media"
+		os.MkdirAll(mediaDir, 0755)
+
+		hash := sha256.Sum256([]byte(handler.Filename + time.Now().String()))
+		filename := fmt.Sprintf("%s%s", hex.EncodeToString(hash[:12]), ext)
+		dst, err := os.Create(filepath.Join(mediaDir, filename))
+		if err != nil {
+			json.NewEncoder(w).Encode(AuthResponse{Success: false, Message: "保存文件失败"})
+			return
+		}
+		defer dst.Close()
+
+		if _, err := io.Copy(dst, file); err != nil {
+			json.NewEncoder(w).Encode(AuthResponse{Success: false, Message: "写入文件失败"})
+			return
+		}
+
+		mediaURL := "/media/" + filename
+		mediaType := "file"
+		switch ext {
+		case ".jpg", ".jpeg", ".png", ".gif", ".webp":
+			mediaType = "image"
+		case ".mp4", ".webm", ".mov":
+			mediaType = "video"
+		case ".mp3", ".wav", ".ogg":
+			mediaType = "audio"
+		}
+
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":   true,
+			"mediaUrl":  mediaURL,
+			"mediaType": mediaType,
+			"fileName":  handler.Filename,
+		})
+	}
+}
+
 func main() {
 	store, err := NewStore("data")
 	if err != nil {
@@ -246,8 +296,10 @@ func main() {
 	http.HandleFunc("/api/profile", handleGetProfile(store))
 	http.HandleFunc("/api/profile/update", handleUpdateProfile(store))
 	http.HandleFunc("/api/avatar/upload", handleUploadAvatar(store))
+	http.HandleFunc("/api/media/upload", handleUploadMedia())
 
 	http.Handle("/avatars/", http.StripPrefix("/avatars/", http.FileServer(http.Dir("data/avatars"))))
+	http.Handle("/media/", http.StripPrefix("/media/", http.FileServer(http.Dir("data/media"))))
 
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)

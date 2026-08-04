@@ -16,6 +16,9 @@ export default defineConfig({
       '/avatars': {
         target: 'http://localhost:8080',
       },
+      '/media': {
+        target: 'http://localhost:8080',
+      },
     },
   },
 })

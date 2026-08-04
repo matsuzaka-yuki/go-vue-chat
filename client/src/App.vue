@@ -112,8 +112,14 @@
               </div>
               <div class="msg-content">
                 <span class="msg-nick">{{ m.nick }}</span>
-                <div class="msg-body">
-                  <p>{{ m.content }}</p>
+                <img v-if="m.mediaType === 'image' && m.mediaUrl" :src="m.mediaUrl" class="msg-image" @load="scrollToBottom" />
+                <video v-else-if="m.mediaType === 'video' && m.mediaUrl" :src="m.mediaUrl" class="msg-video" controls @loadedmetadata="scrollToBottom"></video>
+                <div class="msg-body" :class="{ 'no-border': m.mediaUrl && m.mediaType !== 'file' }">
+                  <a v-if="m.mediaType === 'file' && m.mediaUrl" :href="m.mediaUrl" class="msg-file" target="_blank" download>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    <span>{{ m.content || '查看文件' }}</span>
+                  </a>
+                  <p v-if="m.content">{{ m.content }}</p>
                   <span class="msg-time">{{ formatTime(m.time) }}</span>
                 </div>
               </div>
@@ -124,6 +130,10 @@
           </div>
 
           <div class="input-bar">
+            <label class="btn-attach" title="发送文件">
+              <input type="file" ref="fileInput" @change="uploadMedia" />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </label>
             <input v-model="text" placeholder="输入消息..." @keyup.enter="send" />
             <button class="btn-send" @click="send">发送</button>
           </div>
@@ -382,6 +392,32 @@ export default {
       } catch {
         // ignore
       }
+    },
+    async uploadMedia(e) {
+      const file = e.target.files[0]
+      if (!file) return
+      const form = new FormData()
+      form.append('file', file)
+      try {
+        const res = await fetch('/api/media/upload', { method: 'POST', body: form })
+        const data = await res.json()
+        if (data.success) {
+          this.ws.send(JSON.stringify({
+            type: 'message',
+            content: data.mediaType === 'image' ? '' : file.name,
+            room: this.currentRoom,
+            mediaUrl: data.mediaUrl,
+            mediaType: data.mediaType,
+          }))
+        }
+      } catch {}
+      this.$refs.fileInput.value = ''
+    },
+    scrollToBottom() {
+      this.$nextTick(() => {
+        const box = this.$refs.msgBox
+        if (box) box.scrollTop = box.scrollHeight
+      })
     },
     switchView(v) {
       this.view = v
@@ -732,9 +768,18 @@ body {
   flex-direction: column;
   gap: 4px;
 }
+.msg-body.no-border {
+  border: none;
+  background: transparent;
+  padding: 4px 0;
+}
 .msg-row.self .msg-body {
   background: #1a1a1a;
   border-color: #1a1a1a;
+}
+.msg-row.self .msg-body.no-border {
+  background: transparent;
+  border: none;
 }
 .msg-body p {
   font-size: 14px;
@@ -762,7 +807,24 @@ body {
   gap: 8px;
   background: #f9f9f7;
   border-top: 1px solid #deded9;
+  align-items: center;
 }
+.btn-attach {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #cececa;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.btn-attach:hover { border-color: #1a1a1a; color: #1a1a1a; }
+.btn-attach input { display: none; }
 .input-bar input {
   flex: 1;
   padding: 12px 16px;
@@ -786,6 +848,34 @@ body {
   flex-shrink: 0;
 }
 .btn-send:hover { background: #333; }
+
+/* Message media */
+.msg-image {
+  width: 100%;
+  max-height: 400px;
+  object-fit: contain;
+  border-radius: 8px;
+  display: block;
+  background: #f0f0ee;
+  cursor: pointer;
+}
+.msg-video {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+  display: block;
+}
+.msg-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: #1a1a1a;
+  text-decoration: none;
+  font-size: 13px;
+}
+.msg-row.self .msg-file { color: #fff; }
+.msg-file:hover { text-decoration: underline; }
 
 /* Profile */
 .profile-view { display: flex; flex-direction: column; height: 100vh; }

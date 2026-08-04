@@ -28,15 +28,17 @@ type Client struct {
 }
 
 type Message struct {
-	Type    string   `json:"type"`
-	UserID  string   `json:"userId,omitempty"`
-	Nick    string   `json:"nick,omitempty"`
-	Content string   `json:"content,omitempty"`
-	Room    string   `json:"room,omitempty"`
-	Rooms   []string `json:"rooms,omitempty"`
-	Users   []string `json:"users,omitempty"`
-	Time    int64    `json:"time,omitempty"`
-	Avatar  string   `json:"avatar,omitempty"`
+	Type      string   `json:"type"`
+	UserID    string   `json:"userId,omitempty"`
+	Nick      string   `json:"nick,omitempty"`
+	Content   string   `json:"content,omitempty"`
+	Room      string   `json:"room,omitempty"`
+	Rooms     []string `json:"rooms,omitempty"`
+	Users     []string `json:"users,omitempty"`
+	Time      int64    `json:"time,omitempty"`
+	Avatar    string   `json:"avatar,omitempty"`
+	MediaURL  string   `json:"mediaUrl,omitempty"`
+	MediaType string   `json:"mediaType,omitempty"`
 }
 
 func (m Message) encode() []byte {
