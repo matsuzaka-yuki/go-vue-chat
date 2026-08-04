@@ -414,7 +414,16 @@ func main() {
 	// 托管前端构建产物（dist），未分离部署时直接访问后端端口即可打开页面
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {
-		staticDir = "../client/dist"
+		// 依次尝试常见的前端目录位置
+		for _, candidate := range []string{"./client/dist", "../client/dist", "./dist", "./static"} {
+			if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+				staticDir = candidate
+				break
+			}
+		}
+	}
+	if staticDir == "" {
+		staticDir = "./static"
 	}
 	http.Handle("/", http.FileServer(http.Dir(staticDir)))
 
