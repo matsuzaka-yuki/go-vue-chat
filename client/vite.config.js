@@ -7,17 +7,17 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/ws': {
-        target: 'ws://localhost:8080',
+        target: 'ws://localhost:8086',
         ws: true,
       },
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8086',
       },
       '/avatars': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8086',
       },
       '/media': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8086',
       },
     },
   },

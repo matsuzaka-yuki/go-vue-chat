@@ -1,6 +1,7 @@
 # Go
 server/chat-server.exe
 server/chat-server
+server/chat-server-linux
 server/data/
 *.db
 

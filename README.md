@@ -59,7 +59,7 @@ go mod tidy      # 首次运行，下载依赖
 go run .
 ```
 
-后端默认监听 `http://localhost:8080`。
+后端默认监听 `http://localhost:8086`。
 
 ### 2. 启动前端
 

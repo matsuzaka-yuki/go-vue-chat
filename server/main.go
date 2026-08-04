@@ -415,7 +415,7 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8086"
 	}
 
 	log.Printf("聊天服务器运行在 :%s", port)
