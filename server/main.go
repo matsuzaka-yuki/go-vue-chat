@@ -55,6 +55,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		hub:      hub,
 		conn:     conn,
 		send:     make(chan []byte, 256),
+		username: r.URL.Query().Get("username"),
 		userID:   r.URL.Query().Get("userId"),
 		nick:     r.URL.Query().Get("nick"),
 		room:     r.URL.Query().Get("room"),

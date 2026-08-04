@@ -105,13 +105,17 @@
           </div>
 
           <div class="messages" ref="msgBox">
-            <div v-for="(m, i) in messages" :key="i" class="msg" :class="{ self: m.nick === nickname }">
-              <div class="msg-body">
-                <div class="msg-meta">
-                  <strong>{{ m.nick }}</strong>
-                  <span class="time">{{ formatTime(m.time) }}</span>
+            <div v-for="(m, i) in messages" :key="i" class="msg-row" :class="{ self: m.nick === nickname }">
+              <div class="msg-avatar">
+                <img v-if="m.avatar" :src="m.avatar" :alt="m.nick" />
+                <span v-else>{{ m.nick.charAt(0) }}</span>
+              </div>
+              <div class="msg-content">
+                <span class="msg-nick">{{ m.nick }}</span>
+                <div class="msg-body">
+                  <p>{{ m.content }}</p>
+                  <span class="msg-time">{{ formatTime(m.time) }}</span>
                 </div>
-                <p>{{ m.content }}</p>
               </div>
             </div>
             <div v-if="messages.length === 0" class="empty-msg">
@@ -385,7 +389,7 @@ export default {
     },
     connect() {
       const room = this.room.trim() || '大厅'
-      const wsUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws?nick=${encodeURIComponent(this.nickname)}&room=${encodeURIComponent(room)}`
+      const wsUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws?username=${encodeURIComponent(this.username)}&nick=${encodeURIComponent(this.nickname)}&room=${encodeURIComponent(room)}`
       this.ws = new WebSocket(wsUrl)
 
       this.ws.onopen = () => {
@@ -660,7 +664,7 @@ body {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
   background: #f9f9f7;
 }
 .empty-msg {
@@ -669,30 +673,87 @@ body {
   color: #bbb;
 }
 .empty-msg p { font-size: 14px; }
-.msg {
-  display: block;
-  max-width: min(72%, 680px);
+.msg-row {
+  display: flex;
+  gap: 8px;
+  max-width: min(76%, 680px);
   align-self: flex-start;
 }
-.msg.self { align-self: flex-end; }
-.msg-body {
-  background: #fff;
-  padding: 10px 14px;
-  border: 1px solid #e2e2de;
-  border-radius: 8px;
+.msg-row.self {
+  align-self: flex-end;
+  flex-direction: row-reverse;
 }
-.msg.self .msg-body { background: #e9e9e5; border-color: #d9d9d4; color: #202020; }
-.msg-meta {
+.msg-avatar {
+  width: 32px;
+  height: 32px;
+  background: #d4d4d0;
+  color: #555;
+  border-radius: 50%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+  overflow: hidden;
+  margin-top: 2px;
 }
-.msg-meta strong { font-size: 12px; }
-.msg.self .msg-meta strong { color: #444; }
-.time { font-size: 11px; color: #bbb; }
-.msg.self .time { color: #999; }
-.msg-body p { font-size: 14px; line-height: 1.5; word-break: break-word; }
+.msg-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.msg-row.self .msg-avatar {
+  background: #1a1a1a;
+  color: #fff;
+}
+.msg-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.msg-row.self .msg-content {
+  align-items: flex-end;
+}
+.msg-nick {
+  font-size: 11px;
+  color: #999;
+  padding: 0 4px;
+}
+.msg-row.self .msg-nick {
+  display: none;
+}
+.msg-body {
+  background: #fff;
+  padding: 8px 12px;
+  border: 1px solid #e2e2de;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.msg-row.self .msg-body {
+  background: #1a1a1a;
+  border-color: #1a1a1a;
+}
+.msg-body p {
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+  color: #202020;
+}
+.msg-row.self .msg-body p {
+  color: #fff;
+}
+.msg-time {
+  font-size: 10px;
+  color: #bbb;
+  text-align: right;
+  line-height: 1;
+}
+.msg-row.self .msg-time {
+  color: rgba(255,255,255,0.5);
+}
 
 /* Input */
 .input-bar {
@@ -829,7 +890,7 @@ body {
   }
   .sidebar.open { left: 0; }
   .menu-btn { display: flex; }
-  .msg { max-width: 88%; }
+  .msg-row { max-width: 90%; }
   .messages { padding: 14px 12px; }
   .input-bar { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); }
   .auth-card { padding: 24px 8px; }

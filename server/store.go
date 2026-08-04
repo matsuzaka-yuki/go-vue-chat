@@ -23,6 +23,7 @@ type StoredMessage struct {
 	Nick      string `json:"nick"`
 	Content   string `json:"content"`
 	CreatedAt int64  `json:"createdAt"`
+	Avatar    string `json:"avatar"`
 }
 
 type Store struct {
@@ -93,6 +94,18 @@ func (s *Store) GetUser(username string) (*User, error) {
 	return u, nil
 }
 
+func (s *Store) GetAvatarByNick(nick string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, u := range s.users {
+		if u.Nickname == nick || u.Username == nick {
+			return u.Avatar
+		}
+	}
+	return ""
+}
+
 func (s *Store) UpdateProfile(username, email, nickname, bio string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -119,7 +132,7 @@ func (s *Store) UpdateAvatar(username, avatarPath string) error {
 	return s.saveUsers()
 }
 
-func (s *Store) SaveMessage(room, nick, content string, createdAt int64) error {
+func (s *Store) SaveMessage(room, nick, content, avatar string, createdAt int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -127,6 +140,7 @@ func (s *Store) SaveMessage(room, nick, content string, createdAt int64) error {
 		Room:      room,
 		Nick:      nick,
 		Content:   content,
+		Avatar:    avatar,
 		CreatedAt: createdAt,
 	})
 	return s.saveMessages()

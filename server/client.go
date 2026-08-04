@@ -21,6 +21,7 @@ type Client struct {
 	send         chan []byte
 	room         string
 	nick         string
+	username     string
 	userID       string
 	lastPong     time.Time
 	disconnected bool
@@ -35,6 +36,7 @@ type Message struct {
 	Rooms   []string `json:"rooms,omitempty"`
 	Users   []string `json:"users,omitempty"`
 	Time    int64    `json:"time,omitempty"`
+	Avatar  string   `json:"avatar,omitempty"`
 }
 
 func (m Message) encode() []byte {
@@ -71,7 +73,7 @@ func (c *Client) readPump() {
 			continue
 		}
 
-		msg.UserID = c.userID
+		msg.UserID = c.username
 		msg.Nick = c.nick
 		msg.Time = time.Now().UnixMilli()
 
