@@ -282,6 +282,106 @@ func handleUploadMedia() http.HandlerFunc {
 	}
 }
 
+func handleFollow(store *Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var req struct {
+			Username string `json:"username"`
+			Target   string `json:"target"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "请求格式错误"})
+			return
+		}
+		if err := store.Follow(req.Username, req.Target); err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": err.Error()})
+			return
+		}
+		mutual := store.IsMutual(req.Username, req.Target)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "mutual": mutual})
+	}
+}
+
+func handleUnfollow(store *Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var req struct {
+			Username string `json:"username"`
+			Target   string `json:"target"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "message": "请求格式错误"})
+			return
+		}
+		store.Unfollow(req.Username, req.Target)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+	}
+}
+
+func handleRelation(store *Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		username := r.URL.Query().Get("username")
+		target := r.URL.Query().Get("target")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"following": store.IsFollowing(username, target),
+			"follower":  store.IsFollowing(target, username),
+			"mutual":    store.IsMutual(username, target),
+		})
+	}
+}
+
+func handleGetFollowing(store *Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		username := r.URL.Query().Get("username")
+		list := store.GetFollowing(username)
+		var result []map[string]interface{}
+		for _, u := range list {
+			if user, err := store.GetUser(u); err == nil {
+				result = append(result, map[string]interface{}{
+					"username": user.Username, "nickname": user.Nickname, "avatar": user.Avatar,
+				})
+			}
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "users": result})
+	}
+}
+
+func handleGetFollowers(store *Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		username := r.URL.Query().Get("username")
+		list := store.GetFollowers(username)
+		var result []map[string]interface{}
+		for _, u := range list {
+			if user, err := store.GetUser(u); err == nil {
+				result = append(result, map[string]interface{}{
+					"username": user.Username, "nickname": user.Nickname, "avatar": user.Avatar,
+				})
+			}
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "users": result})
+	}
+}
+
+func handleSearchUsers(store *Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		q := r.URL.Query().Get("q")
+		users := store.SearchUsers(q)
+		var result []map[string]interface{}
+		for _, u := range users {
+			result = append(result, map[string]interface{}{
+				"username": u.Username,
+				"nickname": u.Nickname,
+				"avatar":   u.Avatar,
+			})
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "users": result})
+	}
+}
+
 func main() {
 	store, err := NewStore("data")
 	if err != nil {
@@ -297,6 +397,12 @@ func main() {
 	http.HandleFunc("/api/profile/update", handleUpdateProfile(store))
 	http.HandleFunc("/api/avatar/upload", handleUploadAvatar(store))
 	http.HandleFunc("/api/media/upload", handleUploadMedia())
+	http.HandleFunc("/api/follow", handleFollow(store))
+	http.HandleFunc("/api/unfollow", handleUnfollow(store))
+	http.HandleFunc("/api/relation", handleRelation(store))
+	http.HandleFunc("/api/following", handleGetFollowing(store))
+	http.HandleFunc("/api/followers", handleGetFollowers(store))
+	http.HandleFunc("/api/users/search", handleSearchUsers(store))
 
 	http.Handle("/avatars/", http.StripPrefix("/avatars/", http.FileServer(http.Dir("data/avatars"))))
 	http.Handle("/media/", http.StripPrefix("/media/", http.FileServer(http.Dir("data/media"))))

@@ -61,6 +61,10 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               个人资料
             </a>
+            <a class="nav-item" :class="{ active: view === 'contacts' }" @click="switchView('contacts')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              联系人
+            </a>
             <a class="nav-item" :class="{ active: view === 'about' }" @click="switchView('about')">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
               关于
@@ -93,20 +97,20 @@
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             <div class="chat-header-info">
-              <h2>{{ currentRoom }}</h2>
-              <span class="room-status">
+              <h2>{{ privateChatTo ? privateChatTo : currentRoom }}</h2>
+              <span class="room-status" v-if="!privateChatTo">
                 <span class="status-dot"></span>
                 {{ users.length }} 人在线
               </span>
             </div>
-            <button class="btn-leave" @click="disconnect" title="退出房间">
+            <button class="btn-leave" @click="handleExit" :title="privateChatTo ? '退出私聊' : '退出房间'">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             </button>
           </div>
 
           <div class="messages" ref="msgBox">
             <div v-for="(m, i) in messages" :key="i" class="msg-row" :class="{ self: m.nick === nickname }">
-              <div class="msg-avatar">
+              <div class="msg-avatar" @click="showUserDetail(m)">
                 <img v-if="m.avatar" :src="m.avatar" :alt="m.nick" />
                 <span v-else>{{ m.nick.charAt(0) }}</span>
               </div>
@@ -158,6 +162,14 @@
                 更换头像
               </label>
             </div>
+            <div class="profile-info">
+              <h3>{{ nickname }}</h3>
+              <p class="profile-username">@{{ username }}</p>
+            </div>
+            <div class="profile-stats">
+              <div class="stat" @click="showRelationList('following', { username, nickname })"><strong>{{ profileFollowing }}</strong><span>关注</span></div>
+              <div class="stat" @click="showRelationList('followers', { username, nickname })"><strong>{{ profileFollowers }}</strong><span>粉丝</span></div>
+            </div>
             <div class="profile-form">
               <div class="field">
                 <label>用户名</label>
@@ -178,6 +190,113 @@
               <p v-if="profileMsg" class="profile-msg" :class="{ error: profileError }">{{ profileMsg }}</p>
               <button class="btn-primary" @click="saveProfile">保存</button>
             </div>
+          </div>
+        </div>
+
+        <!-- 联系人页 -->
+        <div v-else-if="view === 'contacts'" class="contacts-view">
+          <div class="contacts-header">
+            <button class="menu-btn" @click="sidebarOpen = true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <h2>联系人</h2>
+          </div>
+          <div class="contacts-body">
+            <div class="contacts-search">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input v-model="searchQuery" placeholder="搜索用户添加好友..." @input="searchUsers" />
+              <div v-if="searchResults.length > 0" class="search-results">
+                <div class="search-title">搜索结果</div>
+                <div v-for="u in searchResults" :key="u.username" class="search-item">
+                  <div class="search-avatar" @click="showContactDetail(u)">
+                    <img v-if="u.avatar" :src="u.avatar" />
+                    <span v-else>{{ u.nickname.charAt(0) }}</span>
+                  </div>
+                  <div class="search-info" @click="showContactDetail(u)">
+                    <strong>{{ u.nickname }}</strong>
+                    <span>{{ u.username }}</span>
+                  </div>
+                  <button class="btn-add" v-if="u.username !== username && !isContact(u.username)" @click="doFollow(u)">关注</button>
+                  <button class="btn-add followed" v-if="u.username !== username && isContact(u.username)" @click="doUnfollow(u)">已关注</button>
+                </div>
+                <div v-if="searchResults.length === 0 && searchQuery" class="search-title">未找到相关用户</div>
+              </div>
+            </div>
+            <div class="contacts-section">
+              <div class="section-header">
+                <span>我的好友</span>
+                <span class="section-count">{{ contacts.length }}</span>
+              </div>
+              <div class="contacts-list">
+                <div v-for="c in contacts" :key="c.username" class="contact-item">
+                  <div class="contact-avatar" @click="showContactDetail(c)">
+                    <img v-if="c.avatar" :src="c.avatar" />
+                    <span v-else>{{ c.nickname.charAt(0) }}</span>
+                  </div>
+                  <div class="contact-info" @click="startPrivateChat(c)">
+                    <strong>{{ c.nickname }}</strong>
+                    <span>{{ c.username }}</span>
+                  </div>
+                  <button class="btn-chat" @click="startPrivateChat(c)">私聊</button>
+                </div>
+                <div v-if="contacts.length === 0" class="empty">暂无互关好友，搜索用户关注吧</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 好友详情页 -->
+        <div v-else-if="view === 'contact-detail'" class="profile-view">
+          <div class="profile-header">
+            <button class="menu-btn" @click="sidebarOpen = true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <h2>用户资料</h2>
+          </div>
+          <div class="profile-content">
+            <div class="profile-avatar-section">
+              <div class="profile-avatar">
+                <img v-if="contactDetail.avatar" :src="contactDetail.avatar" />
+                <span v-else>{{ (contactDetail.nickname || '').charAt(0) }}</span>
+              </div>
+            </div>
+            <div class="profile-info">
+              <h3>{{ contactDetail.nickname }}</h3>
+              <p class="profile-username">@{{ contactDetail.username }}</p>
+            </div>
+            <div class="profile-stats">
+              <div class="stat" @click="showRelationList('following', contactDetail)"><strong>{{ contactDetail.followingCount || 0 }}</strong><span>关注</span></div>
+              <div class="stat" @click="showRelationList('followers', contactDetail)"><strong>{{ contactDetail.followersCount || 0 }}</strong><span>粉丝</span></div>
+            </div>
+            <p class="profile-bio">{{ contactDetail.bio || '暂无简介' }}</p>
+            <div class="profile-actions">
+              <button v-if="contactDetail.username !== username && !contactDetail.isFollowing" class="btn-primary" @click="doFollow(contactDetail)">关注</button>
+              <button v-if="contactDetail.username !== username && contactDetail.isFollowing" class="btn-outline" @click="doUnfollow(contactDetail)">取消关注</button>
+              <button v-if="contactDetail.username !== username && contactDetail.isMutual" class="btn-outline" @click="startPrivateChat(contactDetail)">发消息</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 关注/粉丝列表 -->
+        <div v-else-if="view === 'relation-list'" class="profile-view">
+          <div class="profile-header">
+            <button class="menu-btn" @click="sidebarOpen = true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <h2>{{ relationListType === 'following' ? '关注' : '粉丝' }}</h2>
+          </div>
+          <div class="relation-list">
+            <div v-for="u in relationList" :key="u.username" class="contact-item">
+              <div class="contact-avatar" @click="showContactDetail(u)">
+                <img v-if="u.avatar" :src="u.avatar" />
+                <span v-else>{{ (u.nickname || '').charAt(0) }}</span>
+              </div>
+              <div class="contact-info" @click="showContactDetail(u)">
+                <strong>{{ u.nickname }}</strong>
+                <span>{{ u.username }}</span>
+              </div>
+            </div>
+            <div v-if="relationList.length === 0" class="empty">暂无数据</div>
           </div>
         </div>
 
@@ -237,10 +356,20 @@ export default {
       sidebarOpen: false,
       room: '',
       currentRoom: '',
+      privateChatTo: '',
+      privateChatUsername: '',
       text: '',
       connected: false,
       messages: [],
       users: [],
+      contacts: [],
+      contactDetail: {},
+      profileFollowing: 0,
+      profileFollowers: 0,
+      relationList: [],
+      relationListType: 'following',
+      searchQuery: '',
+      searchResults: [],
       ws: null,
       lightboxUrl: '',
     }
@@ -427,24 +556,184 @@ export default {
         if (box) box.scrollTop = box.scrollHeight
       })
     },
+    async loadContacts() {
+      try {
+        const [fwRes, frRes] = await Promise.all([
+          fetch(`/api/following?username=${encodeURIComponent(this.username)}`),
+          fetch(`/api/followers?username=${encodeURIComponent(this.username)}`),
+        ])
+        const fw = await fwRes.json()
+        const fr = await frRes.json()
+        const following = (fw.users || []).map(u => u.username)
+        const followers = (fr.users || []).map(u => u.username)
+        this.contacts = (fw.users || []).filter(u => followers.includes(u.username))
+      } catch {}
+    },
+    async loadProfileStats() {
+      try {
+        const [fwRes, frRes] = await Promise.all([
+          fetch(`/api/following?username=${encodeURIComponent(this.username)}`),
+          fetch(`/api/followers?username=${encodeURIComponent(this.username)}`),
+        ])
+        const fw = await fwRes.json()
+        const fr = await frRes.json()
+        this.profileFollowing = (fw.users || []).length
+        this.profileFollowers = (fr.users || []).length
+      } catch {}
+    },
+    async showRelationList(type, user) {
+      this.relationListType = type
+      this.relationList = []
+      this.view = 'relation-list'
+      try {
+        const res = await fetch(`/api/${type}?username=${encodeURIComponent(user.username)}`)
+        const data = await res.json()
+        this.relationList = data.users || []
+      } catch {}
+      this.sidebarOpen = false
+    },
+    async addContact(contactUsername) {
+      try {
+        const res = await fetch('/api/contacts/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: this.username, contact: contactUsername }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          this.loadContacts()
+          this.searchQuery = ''
+          this.searchResults = []
+        }
+      } catch {}
+    },
+    async searchUsers() {
+      if (!this.searchQuery.trim()) { this.searchResults = []; return }
+      try {
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(this.searchQuery)}`)
+        const data = await res.json()
+        this.searchResults = data.users || []
+      } catch {}
+    },
+    isContact(username) {
+      return this.contacts.some(c => c.username === username)
+    },
+    async showContactDetail(contact) {
+      this.contactDetail = { ...contact }
+      try {
+        const [relRes, fwRes, frRes] = await Promise.all([
+          fetch(`/api/relation?username=${this.username}&target=${contact.username}`),
+          fetch(`/api/following?username=${contact.username}`),
+          fetch(`/api/followers?username=${contact.username}`),
+        ])
+        const rel = await relRes.json()
+        const fw = await fwRes.json()
+        const fr = await frRes.json()
+        this.contactDetail.isFollowing = rel.following
+        this.contactDetail.isMutual = rel.mutual
+        this.contactDetail.followingCount = (fw.users || []).length
+        this.contactDetail.followersCount = (fr.users || []).length
+      } catch {}
+      this.view = 'contact-detail'
+      this.sidebarOpen = false
+    },
+    async showUserDetail(msg) {
+      if (msg.nick === this.nickname) {
+        this.view = 'profile'
+        this.sidebarOpen = false
+        return
+      }
+      try {
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(msg.nick)}`)
+        const data = await res.json()
+        if (data.success && data.users.length > 0) {
+          const u = data.users[0]
+          await this.showContactDetail({ username: u.username, nickname: u.nickname, avatar: u.avatar, bio: u.bio || '' })
+        }
+      } catch {}
+      this.sidebarOpen = false
+    },
+    async doFollow(target) {
+      try {
+        const res = await fetch('/api/follow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: this.username, target: target.username }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          this.contactDetail.isFollowing = true
+          this.contactDetail.isMutual = data.mutual
+          this.contactDetail.followersCount = (this.contactDetail.followersCount || 0) + 1
+          this.loadContacts()
+        }
+      } catch {}
+    },
+    async doUnfollow(target) {
+      try {
+        await fetch('/api/unfollow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: this.username, target: target.username }),
+        })
+        this.contactDetail.isFollowing = false
+        this.contactDetail.isMutual = false
+        this.contactDetail.followersCount = Math.max(0, (this.contactDetail.followersCount || 0) - 1)
+        this.loadContacts()
+      } catch {}
+    },
+    startPrivateChat(contact) {
+      this.privateChatTo = contact.nickname || contact.username
+      this.privateChatUsername = contact.username
+      this.messages = []
+      const room = 'private:' + [this.username, contact.username].sort().join(':')
+      this.currentRoom = room
+      this.view = 'chat'
+      this.sidebarOpen = false
+      this.connect(room)
+    },
+    leavePrivateChat() {
+      this.privateChatTo = ''
+      this.privateChatUsername = ''
+      this.messages = []
+      this.currentRoom = '大厅'
+      this.connect()
+    },
+    handleExit() {
+      if (this.privateChatTo) {
+        this.leavePrivateChat()
+      } else {
+        this.disconnect()
+      }
+    },
     switchView(v) {
       this.view = v
       this.sidebarOpen = false
+      if (v === 'profile') this.loadProfileStats()
     },
-    connect() {
-      const room = this.room.trim() || '大厅'
-      const wsUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws?username=${encodeURIComponent(this.username)}&nick=${encodeURIComponent(this.nickname)}&room=${encodeURIComponent(room)}`
+    connect(room) {
+      const r = room || this.room.trim() || '大厅'
+      const wsUrl = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws?username=${encodeURIComponent(this.username)}&nick=${encodeURIComponent(this.nickname)}&room=${encodeURIComponent(r)}`
+      if (this.ws) this.ws.close()
       this.ws = new WebSocket(wsUrl)
 
       this.ws.onopen = () => {
         this.connected = true
-        this.currentRoom = room
+        this.currentRoom = r
+        this.loadContacts()
       }
 
       this.ws.onmessage = (e) => {
         const msg = JSON.parse(e.data)
         switch (msg.type) {
           case 'message':
+            if (msg.room && msg.room.startsWith('private:') && !this.privateChatTo) {
+              const parts = msg.room.split(':')
+              const other = parts[1] === this.username ? parts[2] : parts[1]
+              this.privateChatUsername = other
+              const contact = this.contacts.find(c => c.username === other)
+              this.privateChatTo = contact ? contact.nickname : other
+            }
             this.messages.push(msg)
             this.$nextTick(() => {
               const box = this.$refs.msgBox
@@ -465,11 +754,13 @@ export default {
     },
     send() {
       if (!this.text.trim()) return
-      this.ws.send(JSON.stringify({
-        type: 'message',
+      const msg = {
+        type: this.privateChatTo ? 'private' : 'message',
         content: this.text,
         room: this.currentRoom,
-      }))
+      }
+      if (this.privateChatUsername) msg.to = this.privateChatUsername
+      this.ws.send(JSON.stringify(msg))
       this.text = ''
     },
     disconnect() {
@@ -911,16 +1202,19 @@ body {
 .profile-content {
   flex: 1;
   overflow-y: auto;
-  padding: 32px 20px;
-  max-width: 480px;
+  padding: 40px 24px;
+  max-width: 400px;
   margin: 0 auto;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 .profile-avatar-section {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 32px;
+  margin-bottom: 20px;
 }
 .profile-avatar {
   width: 80px;
@@ -937,6 +1231,42 @@ body {
   margin-bottom: 12px;
 }
 .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.profile-info { text-align: center; margin-bottom: 16px; }
+.profile-info h3 { font-size: 20px; font-weight: 700; }
+.profile-username { font-size: 13px; color: #888; margin-top: 4px; }
+.profile-stats {
+  display: flex;
+  gap: 40px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.stat { text-align: center; cursor: pointer; }
+.stat:hover strong { color: #1a1a1a; }
+.stat strong { display: block; font-size: 18px; font-weight: 700; }
+.stat span { font-size: 12px; color: #888; }
+.relation-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+}
+.profile-bio {
+  font-size: 14px;
+  color: #444;
+  line-height: 1.5;
+  text-align: center;
+  margin-bottom: 24px;
+  max-width: 320px;
+}
+.profile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
+}
 .avatar-upload {
   font-size: 13px;
   color: #666;
@@ -951,6 +1281,173 @@ body {
 .profile-form { width: 100%; }
 .profile-msg { font-size: 13px; margin-bottom: 12px; text-align: center; }
 .profile-msg.error { color: #e53935; }
+
+/* Contacts */
+.contacts-view { display: flex; flex-direction: column; height: 100vh; }
+.contacts-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: #f9f9f7;
+  border-bottom: 1px solid #deded9;
+}
+.contacts-header h2 { font-size: 16px; font-weight: 600; }
+.contacts-body { flex: 1; overflow-y: auto; padding: 20px; max-width: 720px; margin: 0 auto; width: 100%; }
+.contacts-search { margin-bottom: 24px; position: relative; }
+.contacts-search .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #999;
+}
+.contacts-search input {
+  width: 100%;
+  padding: 12px 16px 12px 36px;
+  border: 1px solid #cececa;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+  transition: border-color 0.2s;
+}
+.contacts-search input:focus { border-color: #1a1a1a; }
+.contacts-search input::placeholder { color: #aaa; }
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  margin-top: 6px;
+  z-index: 10;
+  max-height: 320px;
+  overflow-y: auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+.search-title {
+  padding: 10px 14px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.search-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.search-item:hover { background: #f5f5f5; }
+.search-avatar, .contact-avatar {
+  width: 40px;
+  height: 40px;
+  background: #d4d4d0;
+  color: #555;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.search-avatar img, .contact-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.search-info { flex: 1; min-width: 0; }
+.search-info strong { display: block; font-size: 14px; }
+.search-info span { font-size: 12px; color: #888; }
+.btn-add {
+  padding: 6px 14px;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.btn-add:hover { background: #333; }
+.btn-add.followed { background: transparent; color: #666; border: 1px solid #cececa; }
+.btn-add.followed:hover { border-color: #e53935; color: #e53935; }
+.contacts-section { margin-top: 4px; }
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+}
+.section-count {
+  background: #ececea;
+  color: #888;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.contacts-list { display: flex; flex-direction: column; gap: 4px; }
+@media (min-width: 900px) {
+  .contact-item { padding: 12px 14px; }
+  .contacts-body { max-width: 900px; }
+  .contacts-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+}
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.contact-item:hover { background: #f0f0ee; }
+.contact-info { flex: 1; min-width: 0; }
+.contact-info strong { display: block; font-size: 14px; }
+.contact-info span { font-size: 12px; color: #888; }
+.btn-chat {
+  padding: 6px 14px;
+  background: transparent;
+  color: #666;
+  border: 1px solid #cececa;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.btn-chat:hover { border-color: #1a1a1a; color: #1a1a1a; }
+.btn-outline {
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid #cececa;
+  border-radius: 7px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-outline:hover { border-color: #1a1a1a; color: #1a1a1a; }
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.contact-item:hover { background: #f0f0ee; }
+.contact-info { flex: 1; }
+.contact-info strong { display: block; font-size: 14px; }
+.contact-info span { font-size: 12px; color: #888; }
+.back-room { font-size: 12px; color: #888; cursor: pointer; text-decoration: underline; }
 
 /* About */
 .about-view { display: flex; flex-direction: column; height: 100vh; }

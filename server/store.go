@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -29,23 +30,28 @@ type StoredMessage struct {
 }
 
 type Store struct {
-	mu       sync.RWMutex
-	dataDir  string
-	users    map[string]*User
-	messages []StoredMessage
+	mu        sync.RWMutex
+	dataDir   string
+	users     map[string]*User
+	messages  []StoredMessage
+	following map[string]map[string]bool
 }
 
 func NewStore(dataDir string) (*Store, error) {
 	os.MkdirAll(dataDir, 0755)
 	s := &Store{
-		dataDir:  dataDir,
-		users:    make(map[string]*User),
-		messages: []StoredMessage{},
+		dataDir:   dataDir,
+		users:     make(map[string]*User),
+		messages:  []StoredMessage{},
+		following: make(map[string]map[string]bool),
 	}
 	if err := s.loadUsers(); err != nil {
 		return nil, err
 	}
 	if err := s.loadMessages(); err != nil {
+		return nil, err
+	}
+	if err := s.loadRelations(); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -214,4 +220,118 @@ func (s *Store) saveMessages() error {
 		return err
 	}
 	return os.WriteFile(s.dataDir+"/messages.json", data, 0644)
+}
+
+func (s *Store) Follow(username, target string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, ok := s.users[target]; !ok {
+		return fmt.Errorf("用户不存在")
+	}
+	if username == target {
+		return fmt.Errorf("不能关注自己")
+	}
+	if s.following[username] == nil {
+		s.following[username] = make(map[string]bool)
+	}
+	s.following[username][target] = true
+	return s.saveRelations()
+}
+
+func (s *Store) Unfollow(username, target string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.following[username] != nil {
+		delete(s.following[username], target)
+	}
+	return s.saveRelations()
+}
+
+func (s *Store) IsFollowing(username, target string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.following[username] != nil && s.following[username][target]
+}
+
+func (s *Store) IsMutual(a, b string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.following[a] != nil && s.following[a][b] &&
+		s.following[b] != nil && s.following[b][a]
+}
+
+func (s *Store) GetFollowing(username string) []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	result := make([]string, 0, len(s.following[username]))
+	for u := range s.following[username] {
+		result = append(result, u)
+	}
+	return result
+}
+
+func (s *Store) GetFollowers(username string) []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []string
+	for u, set := range s.following {
+		if set[username] {
+			result = append(result, u)
+		}
+	}
+	return result
+}
+
+func (s *Store) SearchUsers(query string) []*User {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var result []*User
+	for _, u := range s.users {
+		if query == "" || strings.Contains(u.Username, query) || strings.Contains(u.Nickname, query) {
+			result = append(result, u)
+		}
+	}
+	return result
+}
+
+func (s *Store) loadRelations() error {
+	data, err := os.ReadFile(s.dataDir + "/relations.json")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	var raw map[string][]string
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	for user, list := range raw {
+		s.following[user] = make(map[string]bool)
+		for _, u := range list {
+			s.following[user][u] = true
+		}
+	}
+	return nil
+}
+
+func (s *Store) saveRelations() error {
+	raw := make(map[string][]string)
+	for user, set := range s.following {
+		list := make([]string, 0, len(set))
+		for u := range set {
+			list = append(list, u)
+		}
+		raw[user] = list
+	}
+	data, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(s.dataDir+"/relations.json", data, 0644)
 }

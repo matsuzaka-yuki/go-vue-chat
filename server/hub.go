@@ -15,6 +15,7 @@ const (
 type Hub struct {
 	mu         sync.RWMutex
 	rooms      map[string]map[*Client]bool
+	clients    map[string]*Client
 	register   chan *Client
 	unregister chan *Client
 	broadcast  chan Message
@@ -24,6 +25,7 @@ type Hub struct {
 func NewHub(store *Store) *Hub {
 	return &Hub{
 		rooms:      make(map[string]map[*Client]bool),
+		clients:    make(map[string]*Client),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		broadcast:  make(chan Message, 256),
@@ -43,6 +45,9 @@ func (h *Hub) Run() {
 				h.rooms[client.room] = make(map[*Client]bool)
 			}
 			h.rooms[client.room][client] = true
+			if client.username != "" {
+				h.clients[client.username] = client
+			}
 			h.mu.Unlock()
 
 			h.sendHistory(client)
@@ -53,6 +58,10 @@ func (h *Hub) Run() {
 			h.removeClient(client)
 
 		case msg := <-h.broadcast:
+			if msg.Type == "private" {
+				h.routePrivate(msg)
+				continue
+			}
 			if user, err := h.store.GetUser(msg.UserID); err == nil {
 				msg.Avatar = user.Avatar
 			}
@@ -96,12 +105,73 @@ func (h *Hub) removeClient(client *Client) {
 			}
 		}
 	}
+	if client.username != "" {
+		delete(h.clients, client.username)
+	}
 	h.mu.Unlock()
 
 	if client.room != "" {
 		h.notifyRoomUsers(client.room)
 		log.Printf("%s 离开了房间 %s", client.nick, client.room)
 	}
+}
+
+func (h *Hub) routePrivate(msg Message) {
+	if !h.store.IsMutual(msg.UserID, msg.To) {
+		notAllowed := Message{
+			Type:    "private",
+			Content: "你们不是互关好友，无法发送私信",
+			To:      msg.UserID,
+		}
+		h.mu.RLock()
+		if sender, ok := h.clients[msg.UserID]; ok {
+			sender.send <- notAllowed.encode()
+		}
+		h.mu.RUnlock()
+		return
+	}
+
+	h.mu.RLock()
+	target, ok := h.clients[msg.To]
+	h.mu.RUnlock()
+
+	if !ok {
+		notFound := Message{
+			Type:    "private",
+			Content: "用户不在线",
+			To:      msg.UserID,
+		}
+		h.mu.RLock()
+		if sender, ok := h.clients[msg.UserID]; ok {
+			sender.send <- notFound.encode()
+		}
+		h.mu.RUnlock()
+		return
+	}
+
+	room := privateRoomName(msg.UserID, msg.To)
+	msg.Room = room
+	msg.Type = "message"
+
+	if user, err := h.store.GetUser(msg.UserID); err == nil {
+		msg.Avatar = user.Avatar
+	}
+	h.store.SaveMessage(room, msg.Nick, msg.Content, msg.Avatar, msg.MediaURL, msg.MediaType, msg.Time)
+
+	data := msg.encode()
+	h.mu.RLock()
+	if sender, ok := h.clients[msg.UserID]; ok {
+		sender.send <- data
+	}
+	target.send <- data
+	h.mu.RUnlock()
+}
+
+func privateRoomName(a, b string) string {
+	if a < b {
+		return "private:" + a + ":" + b
+	}
+	return "private:" + b + ":" + a
 }
 
 func (h *Hub) cleanStaleClients() {

@@ -33,6 +33,7 @@ type Message struct {
 	Nick      string   `json:"nick,omitempty"`
 	Content   string   `json:"content,omitempty"`
 	Room      string   `json:"room,omitempty"`
+	To        string   `json:"to,omitempty"`
 	Rooms     []string `json:"rooms,omitempty"`
 	Users     []string `json:"users,omitempty"`
 	Time      int64    `json:"time,omitempty"`
@@ -88,6 +89,9 @@ func (c *Client) readPump() {
 			c.hub.leaveRoom(c)
 		case "message":
 			msg.Type = "message"
+			c.hub.broadcast <- msg
+		case "private":
+			msg.Type = "private"
 			c.hub.broadcast <- msg
 		case "rooms":
 			msg.Type = "rooms"
