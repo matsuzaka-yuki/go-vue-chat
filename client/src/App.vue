@@ -119,17 +119,27 @@
                 <img v-if="m.mediaType === 'image' && m.mediaUrl" :src="m.mediaUrl" class="msg-image" @load="scrollToBottom" @click="openLightbox(m.mediaUrl)" />
                 <video v-else-if="m.mediaType === 'video' && m.mediaUrl" :src="m.mediaUrl" class="msg-video" controls @loadedmetadata="scrollToBottom"></video>
                 <div class="msg-body" :class="{ 'no-border': m.mediaUrl && m.mediaType !== 'file' }">
-                  <a v-if="m.mediaType === 'file' && m.mediaUrl" :href="m.mediaUrl" class="msg-file" target="_blank" download>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    <span>{{ m.content || '查看文件' }}</span>
-                  </a>
-                  <p v-if="m.content">{{ m.content }}</p>
+                  <div v-if="m.mediaType === 'file' && m.mediaUrl" class="msg-file-card">
+                    <div class="file-icon">{{ getFileExt(m.content) }}</div>
+                    <div class="file-info" @click="openFile(m.mediaUrl)">
+                      <strong>{{ m.content }}</strong>
+                      <span>{{ m.fileSize ? formatFileSize(m.fileSize) : '点击下载' }}</span>
+                    </div>
+                    <a :href="m.mediaUrl" target="_blank" download class="file-download">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </a>
+                  </div>
+                  <p v-if="m.content && m.mediaType !== 'file'">{{ m.content }}</p>
                   <span class="msg-time">{{ formatTime(m.time) }}</span>
                 </div>
               </div>
             </div>
             <div v-if="messages.length === 0" class="empty-msg">
               <p>房间里还没有消息</p>
+            </div>
+            <div v-if="uploading" class="uploading-indicator">
+              <span class="spinner"></span>
+              <span>正在上传...</span>
             </div>
           </div>
 
@@ -372,6 +382,7 @@ export default {
       searchResults: [],
       ws: null,
       lightboxUrl: '',
+      uploading: false,
     }
   },
   mounted() {
@@ -533,6 +544,7 @@ export default {
     async uploadMedia(e) {
       const file = e.target.files[0]
       if (!file) return
+      this.uploading = true
       const form = new FormData()
       form.append('file', file)
       try {
@@ -545,10 +557,25 @@ export default {
             room: this.currentRoom,
             mediaUrl: data.mediaUrl,
             mediaType: data.mediaType,
+            fileSize: file.size,
           }))
         }
       } catch {}
+      this.uploading = false
       this.$refs.fileInput.value = ''
+    },
+    getFileExt(name) {
+      const ext = (name || '').split('.').pop() || 'FILE'
+      return ext.length <= 4 ? ext.toUpperCase() : 'FILE'
+    },
+    formatFileSize(bytes) {
+      if (!bytes && bytes !== 0) return ''
+      if (bytes < 1024) return bytes + ' B'
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+      return (bytes / 1024 / 1024).toFixed(1) + ' MB'
+    },
+    openFile(url) {
+      window.open(url, '_blank')
     },
     scrollToBottom() {
       this.$nextTick(() => {
@@ -1185,6 +1212,69 @@ body {
   text-decoration: none;
   font-size: 13px;
 }
+.msg-file-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+.file-icon {
+  width: 40px;
+  height: 40px;
+  background: #f0f0ee;
+  border: 1px solid #e2e2de;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #666;
+  flex-shrink: 0;
+}
+.file-info {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+.file-info strong {
+  display: block;
+  font-size: 13px;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-info span { font-size: 11px; color: #888; }
+.msg-row.self .file-info strong { color: #fff; }
+.msg-row.self .file-icon { background: #333; border-color: #444; color: #fff; }
+.file-download {
+  color: #999;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.file-download:hover { color: #1a1a1a; }
+.msg-row.self .file-download { color: rgba(255,255,255,0.6); }
+.msg-row.self .file-download:hover { color: #fff; }
+.uploading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #888;
+  align-self: flex-start;
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #e0e0e0;
+  border-top-color: #1a1a1a;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .msg-row.self .msg-file { color: #fff; }
 .msg-file:hover { text-decoration: underline; }
 

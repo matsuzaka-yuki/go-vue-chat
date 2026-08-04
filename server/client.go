@@ -40,6 +40,7 @@ type Message struct {
 	Avatar    string   `json:"avatar,omitempty"`
 	MediaURL  string   `json:"mediaUrl,omitempty"`
 	MediaType string   `json:"mediaType,omitempty"`
+	FileSize  int64    `json:"fileSize,omitempty"`
 }
 
 func (m Message) encode() []byte {

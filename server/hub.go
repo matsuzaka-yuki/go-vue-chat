@@ -65,7 +65,7 @@ func (h *Hub) Run() {
 			if user, err := h.store.GetUser(msg.UserID); err == nil {
 				msg.Avatar = user.Avatar
 			}
-			if err := h.store.SaveMessage(msg.Room, msg.Nick, msg.Content, msg.Avatar, msg.MediaURL, msg.MediaType, msg.Time); err != nil {
+			if err := h.store.SaveMessage(msg.Room, msg.Nick, msg.Content, msg.Avatar, msg.MediaURL, msg.MediaType, msg.FileSize, msg.Time); err != nil {
 				log.Printf("保存消息失败: %v", err)
 			}
 
@@ -156,7 +156,7 @@ func (h *Hub) routePrivate(msg Message) {
 	if user, err := h.store.GetUser(msg.UserID); err == nil {
 		msg.Avatar = user.Avatar
 	}
-	h.store.SaveMessage(room, msg.Nick, msg.Content, msg.Avatar, msg.MediaURL, msg.MediaType, msg.Time)
+	h.store.SaveMessage(room, msg.Nick, msg.Content, msg.Avatar, msg.MediaURL, msg.MediaType, msg.FileSize, msg.Time)
 
 	data := msg.encode()
 	h.mu.RLock()
@@ -213,6 +213,7 @@ func (h *Hub) sendHistory(client *Client) {
 			Avatar:    avatar,
 			MediaURL:  sm.MediaURL,
 			MediaType: sm.MediaType,
+			FileSize:  sm.FileSize,
 		}
 		select {
 		case client.send <- m.encode():

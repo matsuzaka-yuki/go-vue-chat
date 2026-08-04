@@ -27,6 +27,7 @@ type StoredMessage struct {
 	Avatar    string `json:"avatar"`
 	MediaURL  string `json:"mediaUrl,omitempty"`
 	MediaType string `json:"mediaType,omitempty"`
+	FileSize  int64  `json:"fileSize,omitempty"`
 }
 
 type Store struct {
@@ -140,7 +141,7 @@ func (s *Store) UpdateAvatar(username, avatarPath string) error {
 	return s.saveUsers()
 }
 
-func (s *Store) SaveMessage(room, nick, content, avatar, mediaURL, mediaType string, createdAt int64) error {
+func (s *Store) SaveMessage(room, nick, content, avatar, mediaURL, mediaType string, fileSize int64, createdAt int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -151,6 +152,7 @@ func (s *Store) SaveMessage(room, nick, content, avatar, mediaURL, mediaType str
 		Avatar:    avatar,
 		MediaURL:  mediaURL,
 		MediaType: mediaType,
+		FileSize:  fileSize,
 		CreatedAt: createdAt,
 	})
 	return s.saveMessages()
