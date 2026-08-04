@@ -13,6 +13,9 @@ type User struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
 	Nickname string `json:"nickname"`
+	Email    string `json:"email"`
+	Bio      string `json:"bio"`
+	Avatar   string `json:"avatar"`
 }
 
 type StoredMessage struct {
@@ -77,6 +80,43 @@ func (s *Store) Login(username, password string) (*User, error) {
 		return nil, fmt.Errorf("用户名或密码错误")
 	}
 	return u, nil
+}
+
+func (s *Store) GetUser(username string) (*User, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	u, ok := s.users[username]
+	if !ok {
+		return nil, fmt.Errorf("用户不存在")
+	}
+	return u, nil
+}
+
+func (s *Store) UpdateProfile(username, email, nickname, bio string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	u, ok := s.users[username]
+	if !ok {
+		return fmt.Errorf("用户不存在")
+	}
+	u.Email = email
+	u.Nickname = nickname
+	u.Bio = bio
+	return s.saveUsers()
+}
+
+func (s *Store) UpdateAvatar(username, avatarPath string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	u, ok := s.users[username]
+	if !ok {
+		return fmt.Errorf("用户不存在")
+	}
+	u.Avatar = avatarPath
+	return s.saveUsers()
 }
 
 func (s *Store) SaveMessage(room, nick, content string, createdAt int64) error {

@@ -39,10 +39,8 @@
 
     <!-- 主界面 -->
     <div v-else class="layout">
-      <!-- 侧栏遮罩（移动端） -->
       <div v-if="sidebarOpen" class="sidebar-overlay" @click="sidebarOpen = false"></div>
 
-      <!-- 侧栏 -->
       <aside class="sidebar" :class="{ open: sidebarOpen }">
         <div class="sidebar-top">
           <div class="sidebar-brand">
@@ -59,6 +57,10 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               聊天
             </a>
+            <a class="nav-item" :class="{ active: view === 'profile' }" @click="switchView('profile')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              个人资料
+            </a>
             <a class="nav-item" :class="{ active: view === 'about' }" @click="switchView('about')">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
               关于
@@ -67,8 +69,11 @@
         </div>
 
         <div class="sidebar-bottom">
-          <div class="sidebar-user">
-            <div class="user-avatar">{{ nickname.charAt(0) }}</div>
+          <div class="sidebar-user" @click="switchView('profile')">
+            <div class="user-avatar">
+              <img v-if="avatar" :src="avatar" :alt="nickname" />
+              <span v-else>{{ nickname.charAt(0) }}</span>
+            </div>
             <div class="user-meta">
               <span class="user-name">{{ nickname }}</span>
               <span class="user-status">在线</span>
@@ -80,7 +85,6 @@
         </div>
       </aside>
 
-      <!-- 主内容 -->
       <main class="main-content">
         <!-- 聊天页 -->
         <div v-if="view === 'chat'" class="chat-view">
@@ -121,6 +125,48 @@
           </div>
         </div>
 
+        <!-- 个人资料页 -->
+        <div v-else-if="view === 'profile'" class="profile-view">
+          <div class="profile-header">
+            <button class="menu-btn" @click="sidebarOpen = true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <h2>个人资料</h2>
+          </div>
+          <div class="profile-content">
+            <div class="profile-avatar-section">
+              <div class="profile-avatar">
+                <img v-if="avatar" :src="avatar" :alt="nickname" />
+                <span v-else>{{ nickname.charAt(0) }}</span>
+              </div>
+              <label class="avatar-upload">
+                <input type="file" accept="image/*" @change="uploadAvatar" />
+                更换头像
+              </label>
+            </div>
+            <div class="profile-form">
+              <div class="field">
+                <label>用户名</label>
+                <input :value="username" disabled />
+              </div>
+              <div class="field">
+                <label>邮箱</label>
+                <input v-model="profileForm.email" placeholder="输入邮箱" />
+              </div>
+              <div class="field">
+                <label>昵称</label>
+                <input v-model="profileForm.nickname" placeholder="输入昵称" />
+              </div>
+              <div class="field">
+                <label>简介</label>
+                <textarea v-model="profileForm.bio" placeholder="写一段个人简介" rows="3"></textarea>
+              </div>
+              <p v-if="profileMsg" class="profile-msg" :class="{ error: profileError }">{{ profileMsg }}</p>
+              <button class="btn-primary" @click="saveProfile">保存</button>
+            </div>
+          </div>
+        </div>
+
         <!-- 关于页 -->
         <div v-else class="about-view">
           <div class="about-header">
@@ -155,11 +201,18 @@ export default {
     return {
       loggedIn: false,
       authView: 'login',
+      username: '',
       nickname: '',
+      email: '',
+      bio: '',
+      avatar: '',
       loginForm: { username: '', password: '' },
       regForm: { username: '', password: '', nickname: '' },
       loginError: '',
       regError: '',
+      profileForm: { email: '', nickname: '', bio: '' },
+      profileMsg: '',
+      profileError: false,
       view: 'chat',
       sidebarOpen: false,
       room: '',
@@ -175,11 +228,15 @@ export default {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
-        const { username, password, nickname } = JSON.parse(saved)
-        this.loginForm.username = username
-        this.loginForm.password = password
-        this.nickname = nickname
-        this.autoLogin(username, password)
+        const data = JSON.parse(saved)
+        this.loginForm.username = data.username
+        this.loginForm.password = data.password
+        this.nickname = data.nickname
+        this.username = data.username
+        this.email = data.email || ''
+        this.bio = data.bio || ''
+        this.avatar = data.avatar || ''
+        this.autoLogin(data.username, data.password)
       } catch {
         localStorage.removeItem(STORAGE_KEY)
       }
@@ -195,7 +252,7 @@ export default {
         })
         const data = await res.json()
         if (data.success) {
-          this.nickname = data.nickname
+          this.applyUserData(data)
           this.loggedIn = true
           this.connect()
         } else {
@@ -215,12 +272,8 @@ export default {
         })
         const data = await res.json()
         if (data.success) {
-          this.nickname = data.nickname
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            username: this.loginForm.username,
-            password: this.loginForm.password,
-            nickname: data.nickname,
-          }))
+          this.applyUserData(data)
+          this.saveToLocal()
           this.loggedIn = true
           this.connect()
         } else {
@@ -249,6 +302,81 @@ export default {
         }
       } catch {
         this.regError = '网络错误，请重试'
+      }
+    },
+    applyUserData(data) {
+      this.username = data.username
+      this.nickname = data.nickname
+      this.email = data.email || ''
+      this.bio = data.bio || ''
+      this.avatar = data.avatar || ''
+      this.profileForm.email = data.email || ''
+      this.profileForm.nickname = data.nickname
+      this.profileForm.bio = data.bio || ''
+    },
+    saveToLocal() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        username: this.username,
+        password: this.loginForm.password,
+        nickname: this.nickname,
+        email: this.email,
+        bio: this.bio,
+        avatar: this.avatar,
+      }))
+    },
+    async saveProfile() {
+      this.profileMsg = ''
+      this.profileError = false
+      try {
+        const res = await fetch('/api/profile/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: this.username,
+            email: this.profileForm.email,
+            nickname: this.profileForm.nickname,
+            bio: this.profileForm.bio,
+          }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          this.nickname = data.nickname
+          this.email = data.email
+          this.bio = data.bio
+          this.profileForm.nickname = data.nickname
+          this.profileForm.email = data.email
+          this.profileForm.bio = data.bio
+          this.saveToLocal()
+          this.profileMsg = '保存成功'
+        } else {
+          this.profileMsg = data.message
+          this.profileError = true
+        }
+      } catch {
+        this.profileMsg = '网络错误，请重试'
+        this.profileError = true
+      }
+    },
+    async uploadAvatar(e) {
+      const file = e.target.files[0]
+      if (!file) return
+
+      const form = new FormData()
+      form.append('username', this.username)
+      form.append('avatar', file)
+
+      try {
+        const res = await fetch('/api/avatar/upload', {
+          method: 'POST',
+          body: form,
+        })
+        const data = await res.json()
+        if (data.success) {
+          this.avatar = data.avatar
+          this.saveToLocal()
+        }
+      } catch {
+        // ignore
       }
     },
     switchView(v) {
@@ -343,7 +471,8 @@ body {
 .auth-logo h1 { font-size: 26px; font-weight: 650; }
 .subtitle { color: #888; font-size: 14px; margin-top: 6px; }
 .field { margin-bottom: 14px; }
-.field input {
+.field label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; }
+.field input, .field textarea {
   width: 100%;
   padding: 14px 16px;
   border: 1px solid #cececa;
@@ -352,8 +481,11 @@ body {
   outline: none;
   transition: border-color 0.2s;
   background: #fff;
+  font-family: inherit;
 }
-.field input:focus { border-color: #1a1a1a; background: #fff; }
+.field textarea { resize: vertical; }
+.field input:focus, .field textarea:focus { border-color: #1a1a1a; background: #fff; }
+.field input:disabled { background: #f0f0ee; color: #888; }
 .error { color: #e53935; font-size: 13px; margin-bottom: 12px; text-align: center; }
 .btn-primary {
   width: 100%;
@@ -431,7 +563,7 @@ body {
   align-items: center;
   justify-content: space-between;
 }
-.sidebar-user { display: flex; align-items: center; gap: 10px; }
+.sidebar-user { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .user-avatar {
   width: 36px;
   height: 36px;
@@ -443,7 +575,10 @@ body {
   justify-content: center;
   font-size: 14px;
   font-weight: 600;
+  overflow: hidden;
+  flex-shrink: 0;
 }
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .user-meta { display: flex; flex-direction: column; }
 .user-name { font-size: 14px; font-weight: 600; }
 .user-status { font-size: 11px; color: #4caf50; }
@@ -590,6 +725,61 @@ body {
   flex-shrink: 0;
 }
 .btn-send:hover { background: #333; }
+
+/* Profile */
+.profile-view { display: flex; flex-direction: column; height: 100vh; }
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  background: #f9f9f7;
+  border-bottom: 1px solid #deded9;
+}
+.profile-header h2 { font-size: 16px; font-weight: 600; }
+.profile-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 20px;
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+}
+.profile-avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 32px;
+}
+.profile-avatar {
+  width: 80px;
+  height: 80px;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 600;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-upload {
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  padding: 6px 16px;
+  border: 1px solid #cececa;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+.avatar-upload:hover { border-color: #1a1a1a; color: #1a1a1a; }
+.avatar-upload input { display: none; }
+.profile-form { width: 100%; }
+.profile-msg { font-size: 13px; margin-bottom: 12px; text-align: center; }
+.profile-msg.error { color: #e53935; }
 
 /* About */
 .about-view { display: flex; flex-direction: column; height: 100vh; }
