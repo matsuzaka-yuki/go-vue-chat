@@ -112,7 +112,7 @@
               </div>
               <div class="msg-content">
                 <span class="msg-nick">{{ m.nick }}</span>
-                <img v-if="m.mediaType === 'image' && m.mediaUrl" :src="m.mediaUrl" class="msg-image" @load="scrollToBottom" />
+                <img v-if="m.mediaType === 'image' && m.mediaUrl" :src="m.mediaUrl" class="msg-image" @load="scrollToBottom" @click="openLightbox(m.mediaUrl)" />
                 <video v-else-if="m.mediaType === 'video' && m.mediaUrl" :src="m.mediaUrl" class="msg-video" controls @loadedmetadata="scrollToBottom"></video>
                 <div class="msg-body" :class="{ 'no-border': m.mediaUrl && m.mediaType !== 'file' }">
                   <a v-if="m.mediaType === 'file' && m.mediaUrl" :href="m.mediaUrl" class="msg-file" target="_blank" download>
@@ -204,6 +204,12 @@
         </div>
       </main>
     </div>
+
+    <!-- 灯箱 -->
+    <div v-if="lightboxUrl" class="lightbox" @click.self="closeLightbox">
+      <button class="lightbox-close" @click="closeLightbox">&times;</button>
+      <img :src="lightboxUrl" class="lightbox-img" @click.self="closeLightbox" />
+    </div>
   </div>
 </template>
 
@@ -236,9 +242,11 @@ export default {
       messages: [],
       users: [],
       ws: null,
+      lightboxUrl: '',
     }
   },
   mounted() {
+    document.addEventListener('keydown', this.onKeyDown)
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
@@ -479,6 +487,18 @@ export default {
     formatTime(ts) {
       return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
     },
+    openLightbox(url) {
+      this.lightboxUrl = url
+    },
+    closeLightbox() {
+      this.lightboxUrl = ''
+    },
+    onKeyDown(e) {
+      if (e.key === 'Escape') this.closeLightbox()
+    },
+  },
+  beforeUnmount() {
+    document.removeEventListener('keydown', this.onKeyDown)
   },
 }
 </script>
@@ -965,6 +985,39 @@ body {
 .about-row:first-of-type { margin-top: 20px; }
 .about-row span { color: #777; }
 .about-row strong { font-weight: 500; }
+
+/* Lightbox */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  cursor: zoom-out;
+}
+.lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+  cursor: default;
+}
+.lightbox-close {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 32px;
+  cursor: pointer;
+  opacity: 0.7;
+  line-height: 1;
+}
+.lightbox-close:hover { opacity: 1; }
 
 /* Mobile */
 @media (max-width: 768px) {
