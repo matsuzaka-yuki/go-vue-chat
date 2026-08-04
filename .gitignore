@@ -19,3 +19,6 @@ client/.env
 # OS
 .DS_Store
 Thumbs.db
+
+# 部署产物
+*.zip

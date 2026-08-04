@@ -411,7 +411,12 @@ func main() {
 		serveWs(hub, w, r)
 	})
 
-	http.Handle("/", http.FileServer(http.Dir("./static")))
+	// 托管前端构建产物（dist），未分离部署时直接访问后端端口即可打开页面
+	staticDir := os.Getenv("STATIC_DIR")
+	if staticDir == "" {
+		staticDir = "../client/dist"
+	}
+	http.Handle("/", http.FileServer(http.Dir(staticDir)))
 
 	port := os.Getenv("PORT")
 	if port == "" {
