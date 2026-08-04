@@ -1,0 +1,19 @@
+# Go
+server/chat-server.exe
+server/chat-server
+server/data/
+*.db
+
+# Node
+client/node_modules/
+client/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
